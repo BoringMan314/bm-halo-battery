@@ -1,4 +1,4 @@
-"""ASUS ROG / TUF wireless mice, on their 2.4 GHz receiver or on the cable.
+"""ASUS ROG / TUF wireless mice and OMNI receiver peripherals.
 
 Source: G-Helper (seerge/g-helper, app/Peripherals/Mouse/AsusMouse.cs and the model
 files in app/Peripherals/Mouse/Models). Only the protocol facts are used here (ids,
@@ -19,10 +19,11 @@ the report id in front is accepted too.
 G-Helper takes a battery value of 0 without charging as "the mouse is in standby",
 not as an empty battery. This provider does the same: no reading.
 
-Not included (they use a different collection, report id or byte position in
-G-Helper, and none was on hand to test): the OMNI receiver (0B05:1ACE), the Harpe II
-Ace, Keris II Ace / Origin, Harpe Ace Mini / Extreme, Strix Carry, Gladius II Wireless
-and the MD200.
+On the ROG OMNI receiver (0B05:1ACE), the ROG Gladius III Wireless AimPoint uses report
+id 3 / collection 3 and the ROG Falchion RX Low Profile uses report id 2 / collection 2.
+Both use 64-byte packets. Other OMNI-compatible ASUS models, the Harpe II Ace, Keris II
+Ace / Origin, Harpe Ace Mini / Extreme, Strix Carry, Gladius II Wireless and MD200 are
+not included.
 """
 from __future__ import annotations
 
@@ -39,6 +40,11 @@ from .base import DeviceStatus, Provider, hexdump, log
 
 ASUS_VID = 0x0B05
 INTERFACE = 0
+OMNI_PID = 0x1ACE
+OMNI_INTERFACE = 2
+OMNI_REPORT_ID = 0x03
+OMNI_KEYBOARD_REPORT_ID = 0x02
+OMNI_KEYBOARD_QUERY = [OMNI_KEYBOARD_REPORT_ID, 0x12, 0x01]
 
 REQUEST = [0x00, 0x12, 0x07]         # report id 0, battery command
 ECHO = (0x12, 0x07)
@@ -93,11 +99,11 @@ Reading = Tuple[int, bool, str]     # level %, charging, approximate text ("" = 
 
 
 def _offset(r: List[int], pair: Tuple[int, int]) -> Optional[int]:
-    """Where `pair` starts in a reply: 0 (hidapi left out report id 0) or 1 (report id
-    in front). None when the reply does not start with it."""
+    """Where `pair` starts in a reply: 0 (hidapi left out report id 0), or 1 (report
+    id 0 or 3 in front). None when the reply does not start with it."""
     if len(r) > 1 and (r[0], r[1]) == pair:
         return 0
-    if len(r) > 2 and r[0] == 0x00 and (r[1], r[2]) == pair:
+    if len(r) > 2 and r[0] in (0x00, OMNI_REPORT_ID) and (r[1], r[2]) == pair:
         return 1
     return None
 
@@ -138,7 +144,9 @@ class AsusProvider(Provider):
         self._diag: List[str] = []
         self._failing: Dict[str, bool] = {}
 
-    def _read(self, path, scale: int) -> Optional[Reading]:
+    def _read(self, path, scale: int, report_id: int = 0x00,
+              packet_length: int = PACKET_LENGTH) -> Optional[Reading]:
+        request = [report_id, 0x12, 0x07]
         dev = hid.device()
         try:
             dev.open_path(path)
@@ -150,19 +158,19 @@ class AsusProvider(Provider):
             try:
                 dev.set_nonblocking(True)
                 for _ in range(16):
-                    if not dev.read(PACKET_LENGTH):
+                    if not dev.read(packet_length):
                         break
                 dev.set_nonblocking(False)
             except (OSError, IOError, ValueError):
                 pass
             for _ in range(WRITE_ATTEMPTS):
                 try:
-                    dev.write(REQUEST + [0x00] * (PACKET_LENGTH - len(REQUEST)))
+                    dev.write(request + [0x00] * (packet_length - len(request)))
                 except (OSError, IOError, ValueError) as e:
                     self._diag.append(f"    write: {e}")
                     return None
                 for _ in range(READ_ATTEMPTS):
-                    r = list(dev.read(PACKET_LENGTH, READ_TIMEOUT_MS) or [])
+                    r = list(dev.read(packet_length, READ_TIMEOUT_MS) or [])
                     if not r:
                         break                        # timeout: send the request again
                     if is_error(r):
@@ -186,6 +194,57 @@ class AsusProvider(Provider):
             except Exception:
                 pass
 
+    def _read_omni_keyboard(self, path) -> Optional[Tuple[int, bool]]:
+        """Read the Falchion RX Low Profile battery from OMNI collection 2."""
+        packet_length = 64
+        dev = hid.device()
+        try:
+            dev.open_path(path)
+        except (OSError, IOError) as e:
+            self._diag.append(f"    open: {e}")
+            return None
+        try:
+            try:
+                dev.set_nonblocking(True)
+                for _ in range(16):
+                    if not dev.read(packet_length):
+                        break
+                dev.set_nonblocking(False)
+            except (OSError, IOError, ValueError):
+                pass
+            for _ in range(WRITE_ATTEMPTS):
+                try:
+                    dev.write(OMNI_KEYBOARD_QUERY + [0x00] * (packet_length - 3))
+                except (OSError, IOError, ValueError) as e:
+                    self._diag.append(f"    write: {e}")
+                    return None
+                for _ in range(READ_ATTEMPTS):
+                    r = list(dev.read(packet_length, READ_TIMEOUT_MS) or [])
+                    if not r:
+                        break
+                    if len(r) >= 3 and r[0] == OMNI_KEYBOARD_REPORT_ID and r[1:3] == [0xFF, 0xAA]:
+                        self._diag.append(f"    reply: error {hexdump(r, 12)}")
+                        return None
+                    if not any(r):
+                        self._diag.append("    reply: all zeros (off or asleep)")
+                        return None
+                    if len(r) < 12 or r[0] != OMNI_KEYBOARD_REPORT_ID or r[1:3] != [0x12, 0x01]:
+                        continue
+                    # Falchion's byte 6 is only a 0-10 gauge; byte 11 is the percentage.
+                    level, charging = r[11], r[9] == 1
+                    self._diag.append(f"    reply: {hexdump(r, 12)}")
+                    if level > 100 or (level == 0 and not charging):
+                        self._diag.append("    battery 0 and not charging (standby), or out of range")
+                        return None
+                    return level, charging
+            self._diag.append("    no reply with the 12 01 echo")
+            return None
+        finally:
+            try:
+                dev.close()
+            except Exception:
+                pass
+
     def poll(self) -> List[DeviceStatus]:
         self._diag = []
         if hid is None:
@@ -197,8 +256,38 @@ class AsusProvider(Provider):
             return []
 
         found: Dict[str, Reading] = {}
+        keyboard_reading: Optional[Tuple[int, bool]] = None
         for d in infos:
             pid = d["product_id"]
+            path = d.get("path", b"")
+            path_text = path.decode("latin-1", "ignore") if isinstance(path, bytes) else str(path)
+            if (pid == OMNI_PID and d.get("interface_number") == OMNI_INTERFACE
+                    and "&col03" in path_text.lower()):
+                # G-Helper identifies Gladius III AimPoint on OMNI via MI_02&Col03.
+                # Match the collection path exactly; the receiver also exposes other
+                # vendor collections used by its buttons and other paired peripherals.
+                name = "ROG Gladius III Wireless AimPoint"
+                self._diag.append(f"[ASUS] {name} via OMNI pid={pid:04x} usage="
+                                  f"{d.get('usage_page', 0):04x}:{d.get('usage', 0):04x}")
+                res = self._read(d["path"], PERCENT, OMNI_REPORT_ID, 64)
+                if res is None:
+                    continue
+                self._diag.append(f"  -> {res[2] or str(res[0]) + '%'}{' charging' if res[1] else ''}")
+                if name not in found or (res[1] and not found[name][1]):
+                    found[name] = res
+                continue
+            # Falchion RX Low Profile is the second peripheral profile on OMNI.
+            # G-Helper identifies it on MI_02&Col02 with report id 2.
+            if (pid == OMNI_PID and d.get("interface_number") == OMNI_INTERFACE
+                    and "&col02" in path_text.lower()):
+                name = "ROG Falchion RX Low Profile"
+                self._diag.append(f"[ASUS] {name} via OMNI pid={pid:04x} usage="
+                                  f"{d.get('usage_page', 0):04x}:{d.get('usage', 0):04x}")
+                res = self._read_omni_keyboard(d["path"])
+                if res is not None:
+                    keyboard_reading = res
+                    self._diag.append(f"  -> {res[0]}%{' charging' if res[1] else ''}")
+                continue
             if pid not in KNOWN:
                 continue
             if d.get("interface_number") != INTERFACE or d.get("usage_page", 0) < 0xFF00:
@@ -217,7 +306,14 @@ class AsusProvider(Provider):
         out: List[DeviceStatus] = []
         for name, (level, charging, text) in found.items():
             key = "asus:" + name.lower().replace(" ", "-")
-            out.append(DeviceStatus(key, name, level, charging, True, "asus", text, kind="mouse"))
+            out.append(DeviceStatus(key, name, level, charging, True, "asus", text, kind="mouse",
+                                    ui_message="state.approx" if text else "",
+                                    ui_params={"level": level, "charging": charging} if text else {}))
+        if keyboard_reading is not None:
+            level, charging = keyboard_reading
+            out.append(DeviceStatus("asus:rog-falchion-rx-low-profile",
+                                    "ROG Falchion RX Low Profile", level, charging, True,
+                                    "asus", kind="keyboard"))
         return out
 
     def diagnostics(self) -> List[str]:

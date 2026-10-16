@@ -15,7 +15,7 @@ The low battery notification fires once, and again only after the device has bee
 
 ## Tray menu
 
-Right-click a device icon to open its menu. It looks like a Windows 11 menu (acrylic background, rounded corners, the light or dark app theme) and is sharp at any display scale. If it does not work on your PC, set `"fluent_menu": false` in `%APPDATA%\HaloBattery\config.json` to get the classic Windows menu back.
+Right-click a device icon to open the standard Windows tray menu. It uses the system's native menu rendering and font, which keeps the appearance consistent with Windows and avoids the custom flyout's display-scaling differences.
 
 - **Rename…**: give the device your own name (for example, two controllers with the same name). **Reset name** goes back to the device's own name.
 - **Icon**: pick the pictogram of this device (Automatic, Mouse, Keyboard, Headset, Controller or Bluetooth), for example a controller over Bluetooth that shows the Bluetooth pictogram.
@@ -23,6 +23,7 @@ Right-click a device icon to open its menu. It looks like a Windows 11 menu (acr
 - **Hide this device**: remove its icon, for example for a controller that always reports 100%.
 - **Refresh now**
 - **Preferences**:
+  - **Language / Idioma**: English, Español, Français, 繁體中文, 简体中文 or 日本語. The first run detects a supported Windows UI language; a saved choice takes precedence. The change applies to menus, tooltips and notifications at once. Diagnostics and the status-file text remain in English.
   - **Poll interval** (15 s to 5 min) and **Low battery alert** (off, 5–30%): change them with the − and + buttons or the mouse wheel, the menu stays open
   - **Alert when fully charged** (a notification once per charge, on by default)
   - **Estimated time left**: "about 5 h of use left" in the tooltip, from how fast the device has drained since its last charge. Only time the device is awake and on battery counts, and there is no estimate until it has been used for 30 minutes and dropped 3%. The history is kept in `%APPDATA%\HaloBattery\history.json`.

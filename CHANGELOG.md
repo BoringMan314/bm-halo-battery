@@ -6,6 +6,12 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Six interface languages**: English, Spanish, French, Traditional Chinese, Simplified Chinese and Japanese. The first run detects a supported Windows UI language; a saved preference takes precedence. Menus, tooltips, device states, notifications and the What's New window use the selected language. Diagnostics and the status-file text stay in English.
+- **Sony INZONE H9 (black and white) battery reading** through its wireless dongle, confirmed at 70% on black and 100% on white. INZONE Hub must be closed because both programs use the same COM port.
+- **ASUS ROG Gladius III Wireless AimPoint over the ROG OMNI receiver** (`0B05:1ACE`), using its dedicated interface 2 / collection 3 and report ID 3 path. The ordinary ROG Gladius III Wireless remains identified separately.
+- **ASUS ROG Falchion RX Low Profile battery reading** over the ROG OMNI receiver (`0B05:1ACE`), using its own interface 2 / collection 2 and report ID 2 path. Its battery icon is identified as a keyboard.
+
 ### Changed
 - **A tidier repository and a shorter README**: the app's modules moved into the `halo/`
   package (`halo_battery.pyw` stays the entry point), the .bat helpers into `scripts/`

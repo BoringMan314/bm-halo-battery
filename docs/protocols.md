@@ -78,6 +78,8 @@ Not HID++ on ff43: Logitech's "Centurion" transport on the vendor collection `ff
 
 Its receiver publishes two collections and neither answers the standard Razer mouse request this app sends. The headset speaks the "PA" protocol instead: 64-byte vendor frames, `P`,`A` out and `P`,`I` back, battery command `0x21` with the level in the reply's data byte, charging `0x2A`. Decoded from a USBPcap capture of Razer Synapse on a real unit (it read 34%), then confirmed on hardware with @phl23's own Barracuda Pro: the level tracks (27% at the test), charging follows the charger, and a switched-off headset reports "no link" rather than a stale value. Over Bluetooth Windows reports the level itself.
 
+The PA headset command set is shared with the other listed PA receivers.
+
 ### Razer BlackShark V2 Pro (2020)
 
 **Connection:** 2.4 GHz receiver (1532:0528)
@@ -138,11 +140,11 @@ The same `b0` exchange as the other Nova headsets, asked for with report id `06`
 
 The AJAZZ Control Center project's AJ-series exchange: a zero-payload `0xF7` status poll brings the receiver's 2.4G telemetry up, then the charge reads from status report `0x05` (`05 00 00 64 01 01 01 02`, charge at byte 3 on Windows). A zero charge or junk bytes are shown as no level rather than a wrong value, and no charging state is reported. **Unverified** - no AM Infinity was on hand; the exchange is confirmed on the reference project's own unit, so the layout stands until the reporter of #72 confirms it
 
-### ASUS ROG Gladius III Aimpoint and other ROG / TUF wireless mice
+### ASUS ROG Gladius III Wireless AimPoint and other ROG / TUF wireless mice
 
 **Connection:** 2.4 GHz receiver or USB cable (for example 0B05:1A72)
 
-The battery command G-Helper uses: output report 0 `12 07` (65 bytes) on the vendor collection of interface 0, answered by a report echoing `12 07` with the battery in byte 5 (a percentage, or a level 0-4 on older models such as the Chakram and Keris Wireless) and charging in byte 10. 0 without charging is standby, not empty, so it shows nothing; `ff aa` (command not known) and an all-zero reply are not read as a level. Receiver and cable share one icon. The OMNI receiver and models with other layouts are not included. **Unverified** - no ASUS mouse was on hand
+The battery command G-Helper uses: direct receiver/cable models use output report 0 `12 07` (65 bytes) on the vendor collection of interface 0; the OMNI version of the **ROG Gladius III Wireless AimPoint** uses report ID `03`, `12 07`, on interface 2 / collection 3 (64 bytes). The reply echoes `12 07`, with the battery in byte 5 (a percentage, or a level 0-4 on older models such as the Chakram and Keris Wireless) and charging in byte 10. 0 without charging is standby, not empty, so it shows nothing; `ff aa` (command not known) and an all-zero reply are not read as a level. The OMNI path is matched narrowly to `0B05:1ACE`, interface 2, `Col03`; this avoids treating the ordinary **ROG Gladius III Wireless** (`197F` / `197D`) as AimPoint. **Unverified locally** - no ASUS mouse was on hand for protocol testing.
 
 ### Corsair Dark Core RGB Pro SE
 
@@ -275,6 +277,12 @@ last value on a greyed icon, so live readings want CAM closed.
 
 ## Mice and keyboards
 
+### ASUS ROG Falchion RX Low Profile
+
+**Connection:** ROG OMNI receiver (`0B05:1ACE`)
+
+The read-only keyboard battery query from G-Helper: report ID `02`, command `12 01`, on interface 2 / collection 2 (`MI_02&Col02`), using a 64-byte packet. The reply echoes `12 01`; byte 11 is the percentage (byte 6 is only a 0-10 gauge) and byte 9 is `01` while charging. A 0% reply without charging is treated as standby. **Unverified locally** - the receiver path and command are documented upstream, but not yet confirmed on this keyboard.
+
 ### Keychron Ultra-Link 8K, Keychron M5
 
 **Connection:** 2.4 GHz receiver (3434:D028) and USB cable (3434:D048)
@@ -342,6 +350,12 @@ Read straight from the HID input report (USB byte 53, Bluetooth full report byte
 **Connection:** USB cable and Bluetooth (054C:09CC)
 
 Read straight from the HID input report: exact percentage and charging state (USB byte 30, Bluetooth full report byte 32). Over Bluetooth, see the note below the table
+
+### Sony INZONE H9 (black and white)
+
+**Connection:** Sony wireless dongle USB serial interface (`054C:0E53`, usually `MI_06`)
+
+Find the COM port by VID/PID, send the two initialization commands and the read-only battery query at 115200 baud, then parse the 14-byte `04 FF 0B 00 96 C3 14 04` response. The charging flag is byte 11 and the percentage is byte 12. The observed exchange is documented by [janit88/InZoneH9Tray](https://github.com/janit88/InZoneH9Tray). The original H9's black and white color editions use this same model protocol; the dongle ID is shared with the H7 receiver. **Confirmed on hardware in Halo Battery**: the white H9 returned 100%, and the black H9 returned 70%. INZONE Hub uses the same exclusive COM port, so close INZONE Hub to allow Halo Battery to read the battery. H9 II is a different model and is not confirmed.
 
 ### Steam Controller (2025) with its puck
 

@@ -24,7 +24,8 @@ One icon per device. No vendor software.
 - **No vendor apps.** Close Synapse, G HUB, NGENUITY and the rest: Halo Battery talks to the receiver, the cable or Windows Bluetooth itself.
 - **30+ brands.** Razer, Logitech, SteelSeries, HyperX, Corsair, ASUS ROG, Sony, Xbox, Nintendo, 8BitDo, Pulsar, Keychron and [many more](docs/devices.md).
 - **Stays out of the way.** Alerts wait until your full-screen game closes, and devices are polled less often while you play.
-- **Native look.** A Windows 11 style menu, sharp at any display scale, light or dark.
+- **Six interface languages.** English, Spanish, French, Traditional Chinese, Simplified Chinese and Japanese; the first run follows a supported Windows UI language.
+- **Native menu.** Uses the standard Windows tray menu.
 - **Autoupdates.** A new release installs from the tray menu in one click.
 
 <p align="center"><img src="docs/charging.gif" alt="The charging animation: the green arc slowly breathes" width="300"></p>

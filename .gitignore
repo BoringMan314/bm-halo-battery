@@ -7,8 +7,12 @@ venv/
 
 # PyInstaller (scripts/build_exe.bat)
 build/
-dist/
 *.spec
+
+# Root-level build output, shortcuts, and release archives
+/dist/
+/*.url
+/*.zip
 
 # Diagnostics and logs (written to %APPDATA%\HaloBattery, but just in case)
 *.log
