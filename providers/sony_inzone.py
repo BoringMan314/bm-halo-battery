@@ -5,7 +5,9 @@ INZONE Hub may hold the serial COM port, so a concurrent session is reported as
 busy instead of interrupting it.
 
 The packet sequence and response layout follow the observations published by
-janit88/InZoneH9Tray. Hardware confirmation in Halo Battery is still pending.
+janit88/InZoneH9Tray, inzone_tray.py at commit
+4780303dbee4bf1a86acf37c2cbc96b1774eee00:
+https://github.com/janit88/InZoneH9Tray/blob/4780303dbee4bf1a86acf37c2cbc96b1774eee00/inzone_tray.py
 """
 from __future__ import annotations
 
@@ -67,6 +69,8 @@ class SonyInzoneProvider(Provider):
             chunk = port.read(waiting if waiting else 1)
             if chunk:
                 data.extend(chunk)
+                if find_battery_frame(data) is not None:
+                    break
         return bytes(data)
 
     @classmethod
@@ -87,8 +91,9 @@ class SonyInzoneProvider(Provider):
                 time.sleep(0.5)
                 port.reset_input_buffer()
                 port.reset_output_buffer()
-                self._send_and_read(port, INIT_1)
-                self._send_and_read(port, INIT_2)
+                for command in (INIT_1, INIT_2):
+                    port.write(command)
+                    time.sleep(0.25)
                 response = self._send_and_read(port, BATTERY_QUERY)
         except (OSError, serial.SerialException) as exc:
             message = str(exc)

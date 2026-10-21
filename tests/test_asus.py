@@ -134,6 +134,14 @@ class ParseTest(unittest.TestCase):
         for pid, (name, scale) in A.KNOWN.items():
             self.assertIn(scale, (A.PERCENT, A.STEPS), hex(pid))
 
+    def test_falchion_omni_reply_uses_battery_percent_and_charging_fields(self):
+        # USBPcap: 02 12 01 00 00 53 02 01 00 14 53 0d 10 ...
+        reply = [0x02, 0x12, 0x01, 0x00, 0x00, 0x53, 0x02, 0x01, 0x00,
+                 0x14, 0x53, 0x0d, 0x10]
+        self.assertEqual(A.parse_omni_keyboard_reply(reply), (83, False))
+        reply[8] = 1
+        self.assertEqual(A.parse_omni_keyboard_reply(reply), (83, True))
+
 
 class PollTest(ProviderTest):
     def test_gladius_iii_aimpoint_issue_81(self):

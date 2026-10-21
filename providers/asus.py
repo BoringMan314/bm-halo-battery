@@ -98,6 +98,18 @@ KNOWN: Dict[int, Tuple[str, int]] = {
 Reading = Tuple[int, bool, str]     # level %, charging, approximate text ("" = exact)
 
 
+def parse_omni_keyboard_reply(r: List[int]) -> Optional[Tuple[int, bool]]:
+    """Parse an OMNI Falchion 12 01 reply -> (battery percent, charging)."""
+    if len(r) < 9 or r[0] != OMNI_KEYBOARD_REPORT_ID or r[1:3] != [0x12, 0x01]:
+        return None
+    # hidapi includes the report id in r[0]; G-Helper's buffer starts at report data.
+    # Its [6] battery and [9] charging fields therefore map to r[5] and r[8].
+    level, charging = r[5], r[8] == 1
+    if level > 100 or (level == 0 and not charging):
+        return None
+    return level, charging
+
+
 def _offset(r: List[int], pair: Tuple[int, int]) -> Optional[int]:
     """Where `pair` starts in a reply: 0 (hidapi left out report id 0), or 1 (report
     id 0 or 3 in front). None when the reply does not start with it."""
@@ -228,15 +240,14 @@ class AsusProvider(Provider):
                     if not any(r):
                         self._diag.append("    reply: all zeros (off or asleep)")
                         return None
-                    if len(r) < 12 or r[0] != OMNI_KEYBOARD_REPORT_ID or r[1:3] != [0x12, 0x01]:
+                    if len(r) < 3 or r[0] != OMNI_KEYBOARD_REPORT_ID or r[1:3] != [0x12, 0x01]:
                         continue
-                    # Falchion's byte 6 is only a 0-10 gauge; byte 11 is the percentage.
-                    level, charging = r[11], r[9] == 1
                     self._diag.append(f"    reply: {hexdump(r, 12)}")
-                    if level > 100 or (level == 0 and not charging):
+                    reading = parse_omni_keyboard_reply(r)
+                    if reading is None:
                         self._diag.append("    battery 0 and not charging (standby), or out of range")
                         return None
-                    return level, charging
+                    return reading
             self._diag.append("    no reply with the 12 01 echo")
             return None
         finally:
