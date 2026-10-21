@@ -281,7 +281,7 @@ last value on a greyed icon, so live readings want CAM closed.
 
 **Connection:** ROG OMNI receiver (`0B05:1ACE`)
 
-The read-only keyboard battery query from G-Helper: report ID `02`, command `12 01`, on interface 2 / collection 2 (`MI_02&Col02`), using a 64-byte packet. The reply echoes `12 01`; byte 11 is the percentage (byte 6 is only a 0-10 gauge) and byte 9 is `01` while charging. A 0% reply without charging is treated as standby. **Unverified locally** - the receiver path and command are documented upstream, but not yet confirmed on this keyboard.
+The read-only keyboard battery query from G-Helper: report ID `02`, command `12 01`, on interface 2 / collection 2 (`MI_02&Col02`), using a 64-byte packet. **Confirmed on hardware.** The awake HIDAPI reply is `02 12 01 00 00 00 54 02 01 00 14 54 ...`; the level `0x54` (84%) is duplicated at bytes 6 and 11, and the charging flag is byte 9 (`00` in this capture: not charging). Byte 5 is a zero prefix, not the level. An earlier capture was interpreted as 83% from byte 5; that interpretation is obsolete and is not accepted by the provider. When the keyboard was asleep, the receiver returned `02 ff aa`, which has no battery fields and is treated as no reading. See `hardware-evidence/README.md` for the captures and live probe results. A 0% reply without charging is treated as standby.
 
 ### Keychron Ultra-Link 8K, Keychron M5
 

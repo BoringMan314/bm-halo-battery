@@ -100,11 +100,14 @@ Reading = Tuple[int, bool, str]     # level %, charging, approximate text ("" = 
 
 def parse_omni_keyboard_reply(r: List[int]) -> Optional[Tuple[int, bool]]:
     """Parse an OMNI Falchion 12 01 reply -> (battery percent, charging)."""
-    if len(r) < 9 or r[0] != OMNI_KEYBOARD_REPORT_ID or r[1:3] != [0x12, 0x01]:
+    if len(r) < 12 or r[0] != OMNI_KEYBOARD_REPORT_ID or r[1:3] != [0x12, 0x01]:
         return None
-    # hidapi includes the report id in r[0]; G-Helper's buffer starts at report data.
-    # Its [6] battery and [9] charging fields therefore map to r[5] and r[8].
-    level, charging = r[5], r[8] == 1
+    # On the current receiver/hidapi path an extra zero shifts the wire fields by one:
+    # level is duplicated at bytes 6 and 11, and charging is byte 9. Byte 5 is a
+    # zero prefix, not the battery level.
+    level, charging = r[6], r[9] == 1
+    if level != r[11]:
+        return None
     if level > 100 or (level == 0 and not charging):
         return None
     return level, charging
