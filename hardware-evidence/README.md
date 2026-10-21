@@ -67,6 +67,59 @@ is in `asus-falchion-omni-2026-10-21.pcap`; its `12 01` reply begins:
 02 12 01 00 00 53 02 01 00 14 53 0d 10
 ```
 
-The report id occupies byte 0 in hidapi's result, so the battery percentage is byte 5
-(`0x53`, 83), and the charging flag is byte 8. Byte 11 changes between reports and is
-not the percentage.
+The follow-up captures below correct the initial byte interpretation. The Falchion
+parser update is on the fork's `main` branch; PR #278 remains limited to the INZONE H9
+changes, as requested in the review.
+
+The first awake capture was initially interpreted as 83% (`0x53`) from byte 5. That
+interpretation is obsolete: the later live HIDAPI result shows byte 5 is a zero prefix,
+and the provider no longer uses it as a battery level. The earlier PCAP is retained as
+raw historical evidence only.
+
+### ASUS ROG Falchion RX Low Profile, repeat capture while unavailable
+
+Date: 2026-10-21 (Asia/Taipei). The installed HaloBattery diagnostic found the paired
+keyboard on OMNI collection 2 and sent the same `02 12 01` battery query. The receiver
+answered `02 ff aa`, so this poll had no battery value to decode. The earlier awake
+capture on this same receiver did return 83%; the existing hardware check also observed
+`ff aa` while the keyboard was asleep. This repeat therefore matches the known asleep or
+unavailable response rather than a changed battery-report layout.
+
+The filtered capture is `asus-falchion-omni-sleep-2026-10-21.pcap`. It contains the
+receiver's interface-2 interrupt endpoints (`0x03` out and `0x83` in), including the
+keyboard query and error reply. The diagnostic output also found the Gladius mouse
+profile on the receiver, which returned `ff aa` during this poll.
+
+### ASUS ROG Falchion RX Low Profile, awake reply
+
+After the keyboard was woken, the old installed HaloBattery build incorrectly read
+`0% charging` from this HIDAPI reply:
+
+```text
+02 12 01 00 00 00 54 02 01 00 14 54
+```
+
+The following USBPcap capture shows the successful response on the wire as
+`02 12 01 00 00 54 02 01 00 14 54 36 10 ...`. It reports `0x54` (84%) and is not
+charging: byte 8 is `00` on the wire. HaloBattery's HIDAPI result has an extra zero
+before the level, so the duplicated level appears at bytes 6 and 11 and the charging
+flag moves to byte 9 (`00`). The parser now reads those HIDAPI positions.
+
+The filtered capture is `asus-falchion-omni-awake-2026-10-21.pcap` and contains the
+receiver's interface-2 interrupt endpoints (`0x03` out and `0x83` in).
+
+A fresh confirmation capture after the user confirmed the keyboard was not charging is
+`asus-falchion-omni-current-2026-10-21.pcap`. Its reply is
+`02 12 01 00 00 54 02 01 00 14 54 ...`: the level is 84%, and wire byte 8 is `00`
+(not charging). The old installed build still reports `0% charging`; the updated source
+parser reads the shifted HIDAPI fields instead.
+
+### ASUS ROG Falchion RX Low Profile, charging
+
+With the keyboard plugged in, a fresh live probe returned HIDAPI bytes
+`02 12 01 00 00 00 54 02 01 01 14 54`: duplicated level bytes 6 and 11 are `0x54`
+(84%), and byte 9 is `01` (charging). The corresponding USBPcap reply begins
+`02 12 01 00 00 54 02 01 01 14 54 92 10 ...`; on the wire, the charging flag is byte 8.
+The filtered capture is `asus-falchion-omni-plugged-2026-10-21.pcap`. The old installed
+build still displays `0% charging` because it has not been rebuilt with the corrected
+parser.
