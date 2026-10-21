@@ -32,6 +32,16 @@ and the project follows [Semantic Versioning](https://semver.org/).
   "connected". The controller's own coarse level (empty / low / medium / full) is shown
   instead; when Windows does report a Bluetooth level, that one is still used.
 
+## [1.15.1] - 2026-10-21
+
+### Fixed
+- **ASUS ROG Falchion RX Low Profile battery and charging readings** over the ROG OMNI
+  receiver now use the verified reply fields.
+
+### Added
+- **Hardware captures** for the ASUS ROG Falchion RX Low Profile and Sony INZONE H9
+  confirm battery and charging responses from the tested devices.
+
 ## [1.15.0] - 2026-10-12
 
 Updates install from the app: **Update to vX.Y.Z** downloads the new version, checks it,
