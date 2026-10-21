@@ -103,11 +103,17 @@ class PollTest(unittest.TestCase):
         self.assertEqual(self.port.writes, [S.INIT_1, S.INIT_2, S.QUERY])
         self.assertLess(self.clock.now, 1.5)
 
-    def test_no_frame_sends_each_command_once(self):
+    def test_poll_reports_charging_state(self):
+        self.port.answer = frame(88, 1)
+        result = S.SonyInzoneProvider().poll()
+        self.assertEqual([(r.level, r.charging) for r in result], [(88, True)])
+
+    def test_no_response_returns_no_status_after_single_query(self):
         self.port.answer = None
         result = S.SonyInzoneProvider().poll()
         self.assertEqual(result, [])
         self.assertEqual(self.port.writes, [S.INIT_1, S.INIT_2, S.QUERY])
+        self.assertLess(self.clock.now, 2.5)
 
 
 if __name__ == "__main__":
