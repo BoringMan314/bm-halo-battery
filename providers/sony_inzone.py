@@ -12,6 +12,9 @@ except ImportError:
 
 from .base import DeviceStatus, Provider
 
+# Protocol sequence and response signature from janit88/InZoneH9Tray,
+# inzone_tray.py at 4780303dbee4bf1a86acf37c2cbc96b1774eee00:
+# https://github.com/janit88/InZoneH9Tray/blob/4780303dbee4bf1a86acf37c2cbc96b1774eee00/inzone_tray.py
 VID = 0x054C
 PID = 0x0E53
 NAME = "Sony INZONE H9"
@@ -50,16 +53,22 @@ class SonyInzoneProvider(Provider):
                     time.sleep(0.5)
                     port.reset_input_buffer()
                     port.reset_output_buffer()
-                    response = b""
-                    for command in (INIT_1, INIT_2, QUERY):
+                    for command in (INIT_1, INIT_2):
                         port.write(command)
                         time.sleep(0.25)
-                        response = b""
-                        end = time.monotonic() + 0.8
-                        while time.monotonic() < end:
-                            waiting = port.in_waiting
-                            response += port.read(waiting if waiting else 1)
-                    frame = find_frame(response)
+                    port.write(QUERY)
+                    time.sleep(0.25)
+                    response = b""
+                    frame = None
+                    end = time.monotonic() + 0.8
+                    while time.monotonic() < end:
+                        waiting = port.in_waiting
+                        chunk = port.read(waiting if waiting else 1)
+                        if chunk:
+                            response += chunk
+                            frame = find_frame(response)
+                            if frame is not None:
+                                break
             except (OSError, serial.SerialException) as exc:
                 self._diag.append(f"{info.device}: {exc}")
                 continue
